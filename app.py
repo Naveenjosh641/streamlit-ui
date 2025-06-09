@@ -1,34 +1,59 @@
 import streamlit as st
 import requests
 
-st.set_page_config(page_title="Resume - Role Fit Evaluator")
+# Backend URL deployed on Render
+BACKEND_URL = "https://turtil-project.onrender.com"
 
-st.title("📄 Resume - Role Fit Evaluator")
+# Streamlit app UI
+st.set_page_config(page_title="Resume Fit Evaluator", layout="wide")
 
-st.markdown("Upload your *resume (PDF)* and paste the *job description* to get your matching track.")
+st.title("🎯 Resume–Role Fit Evaluator")
 
-# Upload resume
-resume_file = st.file_uploader("📎 Upload your Resume (PDF)", type=["pdf"])
+st.markdown("""
+This tool checks how well your resume matches a job role and recommends learning steps if needed.
+""")
 
-# Job description input
-job_description = st.text_area("🧾 Paste Job Description here")
+# Input form
+with st.form("input_form"):
+    resume_text = st.text_area("📄 Paste your Resume Text", height=200)
+    job_description = st.text_area("💼 Paste the Job Description", height=200)
+    submitted = st.form_submit_button("Evaluate Fit")
 
-# Submit button
-if st.button("🚀 Evaluate Fit"):
-    if resume_file and job_description:
-        with st.spinner("Sending data to backend..."):
+# When the form is submitted
+if submitted:
+    if not resume_text or not job_description:
+        st.warning("Please provide both resume text and job description.")
+    else:
+        with st.spinner("Evaluating..."):
             try:
                 response = requests.post(
-                    "https://turtil-project.onrender.com/predict",  # Your FastAPI backend
-                    files={"resume": resume_file},
-                    data={"jd": job_description},
+                    f"{BACKEND_URL}/evaluate-fit",
+                    json={"resume_text": resume_text, "job_description": job_description}
                 )
-                if response.status_code == 200:
-                    st.success("✅ Evaluation complete!")
-                    st.json(response.json())
-                else:
-                    st.error("❌ Backend error. Please check server or try again later.")
+                result = response.json()
+
+                # Show results
+                st.success("✅ Evaluation Complete!")
+
+                st.subheader("📊 Fit Score")
+                st.metric("Fit Score", f"{result.get('fit_score', 0):.2f}")
+                st.write("Verdict:", result.get("verdict", "N/A"))
+
+                st.subheader("✅ Matched Skills")
+                matched = result.get("matched_skills", [])
+                st.write(", ".join(matched) if matched else "None")
+
+                st.subheader("❌ Missing Skills")
+                missing = result.get("missing_skills", [])
+                st.write(", ".join(missing) if missing else "None")
+
+                st.subheader("📚 Recommended Learning Track")
+                learning_tracks = result.get("recommended_learning_track", [])
+                for track in learning_tracks:
+                    st.markdown(f"*{track['skill']}*")
+                    for i, step in enumerate(track["steps"], 1):
+                        st.markdown(f"- Step {i}: {step}")
+
             except Exception as e:
-                st.error(f"❌ Failed to connect to backend: {e}")
-    else:
-        st.warning("⚠️ Please upload a resume and paste a job description.")
+                st.error("⚠️ Error while contacting the backend.")
+                st.exception(e)
