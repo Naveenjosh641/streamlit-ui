@@ -7,7 +7,7 @@ Turtil – Streamlit Resume ⇆ Role-Fit Evaluator
 * Robust file-parsing so bad PDFs never crash the app
 """
 
-from _future_ import annotations
+from __future__ import annotations
 
 import io
 import os
